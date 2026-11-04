@@ -8,6 +8,7 @@ seed=$((1000 + job))
 set +eu
 source /cvmfs/sw.hsf.org/key4hep/setup.sh -r 2026-04-08 >/dev/null 2>&1
 source "$odd/bin/this_odd.sh"
+export PYTHIA8DATA=$(pythia8-config --xmldoc)
 set -eu
 
 work=$(mktemp -d)
