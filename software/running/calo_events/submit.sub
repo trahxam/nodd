@@ -1,5 +1,6 @@
 # Submit: condor_submit submit.sub            (50 jobs x 2 events)
 # Test:   condor_submit submit.sub njobs=1 nev=1
+# No PU:  condor_submit submit.sub npu=0 njobs=10 nev=10
 work    = /eos/user/h/hart/nodd-work
 outdir  = $(work)/events/ttbar_pu$(npu:200)
 here    = $ENV(PWD)
@@ -7,8 +8,8 @@ logdir  = $ENV(HOME)/nodd-condor-logs
 
 executable = $(here)/run_job.sh
 arguments  = $(Process) $(nev:2) $(npu:200) $(outdir) $(work)/odd-install $(work)/bin/gen_ttbar_pu
-output     = $(logdir)/job$(Process).out
-error      = $(logdir)/job$(Process).err
+output     = $(logdir)/pu$(npu:200)_$(Cluster).$(Process).out
+error      = $(logdir)/pu$(npu:200)_$(Cluster).$(Process).err
 log        = $(logdir)/condor.log
 
 request_cpus   = 1
