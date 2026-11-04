@@ -5,8 +5,10 @@ set -euo pipefail
 job=$1; nev=$2; npu=$3; out=$4; odd=$5; gen=$6
 seed=$((1000 + job))
 
+set +eu
 source /cvmfs/sw.hsf.org/key4hep/setup.sh -r 2026-04-08 >/dev/null 2>&1
 source "$odd/bin/this_odd.sh"
+set -eu
 
 work=$(mktemp -d)
 cd "$work"
