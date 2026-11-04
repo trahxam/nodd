@@ -7,4 +7,4 @@ set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 mkdir -p "$(dirname "$1")"
 g++ -O2 -std=c++17 "$here/gen_ttbar_pu.cc" -o "$1" \
-    $(pythia8-config --cxxflags --libs) -lHepMC3
+    $(pythia8-config --cxxflags --libs) $(HepMC3-config --cflags --libs)
