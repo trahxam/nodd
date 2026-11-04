@@ -6,12 +6,13 @@ npu     = 200
 work    = /eos/user/h/hart/nodd-work
 outdir  = $(work)/events/ttbar_pu$(npu)
 here    = $ENV(PWD)
+logdir  = $ENV(HOME)/nodd-condor-logs
 
 executable = $(here)/run_job.sh
 arguments  = $(Process) $(nev) $(npu) $(outdir) $(work)/odd-install $(work)/bin/gen_ttbar_pu
-output     = $(work)/logs/job$(Process).out
-error      = $(work)/logs/job$(Process).err
-log        = $(work)/logs/condor.log
+output     = $(logdir)/job$(Process).out
+error      = $(logdir)/job$(Process).err
+log        = $(logdir)/condor.log
 
 request_cpus   = 1
 request_memory = 4GB
