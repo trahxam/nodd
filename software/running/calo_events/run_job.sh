@@ -17,13 +17,19 @@ cd "$work"
 ddsim --compactFile "$odd/share/OpenDataDetector/xml/OpenDataDetector.xml" \
       --inputFiles events.hepmc3 -N "$nev" \
       --random.seed "$seed" \
-      --outputFile sim.edm4hep.root 2>&1 | tee ddsim.log
+      --outputFile sim.edm4hep.root > ddsim.log 2>&1 \
+  || echo "ddsim exit status $? (known teardown crash; output checked below)" >&2
+tail -5 ddsim.log
 
-# ddsim exits 0 even when input parsing aborts the run; check explicitly.
+# ddsim's exit status is unreliable both ways: 0 after aborted input, nonzero
+# from a teardown segfault after a complete run. Check the output instead.
 if grep -qE "Must Be Aborted|event parsing failed" ddsim.log; then
   echo "ddsim run aborted" >&2; exit 1
 fi
-done=$(python3 -c "import ROOT; print(ROOT.TFile('sim.edm4hep.root').Get('events').GetEntries())")
+done=$(python3 -c "
+import ROOT
+f = ROOT.TFile.Open('sim.edm4hep.root')
+print(-1 if not f or f.IsZombie() or f.TestBit(ROOT.TFile.kRecovered) else f.Get('events').GetEntries())")
 if [ "$done" != "$nev" ]; then
   echo "simulated $done of $nev events" >&2; exit 1
 fi
