@@ -12,11 +12,11 @@
 #include <Pythia8/Pythia.h>
 
 #include <cstdlib>
+#include <functional>
 #include <iostream>
 #include <map>
 #include <random>
 #include <string>
-#include <tuple>
 
 namespace {
 
@@ -42,27 +42,48 @@ void configure(Pythia8::Pythia& p, const std::string& process, int seed) {
   }
 }
 
-// Append final-state particles of one interaction, shifted to its vertex.
-// Particles sharing a production point share one HepMC3 vertex.
+constexpr double kPromptMm = 1e-6;  // below this, a particle is prompt
+
+HepMC3::GenParticlePtr makeParticle(const Pythia8::Particle& p, int status) {
+  auto gp = std::make_shared<HepMC3::GenParticle>(
+      HepMC3::FourVector(p.px(), p.py(), p.pz(), p.e()), p.id(), status);
+  gp->set_generated_mass(p.m());
+  return gp;
+}
+
+// Append one interaction, shifted to its vertex. Every HepMC3 vertex has an
+// incoming particle (the reader rejects empty ones): the primary vertex takes
+// the two beam protons (status 4); a displaced decay vertex takes its decayed
+// parent (status 2), which itself leaves the vertex where it was produced.
+// Only final-state particles and their decayed ancestors are written.
 void append(HepMC3::GenEvent& out, const Pythia8::Event& ev,
             const HepMC3::FourVector& shift) {
-  std::map<std::tuple<double, double, double, double>, HepMC3::GenVertexPtr>
-      vertices;
-  for (int i = 0; i < ev.size(); ++i) {
+  auto at = [&](double x, double y, double z, double t) {
+    auto v = std::make_shared<HepMC3::GenVertex>(HepMC3::FourVector(
+        shift.x() + x, shift.y() + y, shift.z() + z, shift.t() + t));
+    out.add_vertex(v);
+    return v;
+  };
+  auto primary = at(0, 0, 0, 0);
+  primary->add_particle_in(makeParticle(ev[1], 4));
+  primary->add_particle_in(makeParticle(ev[2], 4));
+
+  std::map<int, HepMC3::GenVertexPtr> decayVertex;  // parent index -> vertex
+  std::function<HepMC3::GenVertexPtr(int)> productionVertex = [&](int i) {
     const auto& p = ev[i];
-    if (!p.isFinal()) continue;
-    auto key = std::make_tuple(p.xProd(), p.yProd(), p.zProd(), p.tProd());
-    auto& v = vertices[key];
+    const int m = p.mother1();
+    if (p.vProd().pAbs() < kPromptMm || m <= 0) return primary;
+    auto& v = decayVertex[m];
     if (!v) {
-      v = std::make_shared<HepMC3::GenVertex>(HepMC3::FourVector(
-          shift.x() + p.xProd(), shift.y() + p.yProd(),
-          shift.z() + p.zProd(), shift.t() + p.tProd()));
-      out.add_vertex(v);
+      const auto& mother = ev[m];
+      v = at(mother.xDec(), mother.yDec(), mother.zDec(), mother.tDec());
+      v->add_particle_in(makeParticle(mother, 2));
+      productionVertex(m)->add_particle_out(v->particles_in().front());
     }
-    auto gp = std::make_shared<HepMC3::GenParticle>(
-        HepMC3::FourVector(p.px(), p.py(), p.pz(), p.e()), p.id(), 1);
-    gp->set_generated_mass(p.m());
-    v->add_particle_out(gp);
+    return v;
+  };
+  for (int i = 0; i < ev.size(); ++i) {
+    if (ev[i].isFinal()) productionVertex(i)->add_particle_out(makeParticle(ev[i], 1));
   }
 }
 

@@ -17,7 +17,16 @@ cd "$work"
 ddsim --compactFile "$odd/share/OpenDataDetector/xml/OpenDataDetector.xml" \
       --inputFiles events.hepmc3 -N "$nev" \
       --random.seed "$seed" \
-      --outputFile sim.edm4hep.root
+      --outputFile sim.edm4hep.root 2>&1 | tee ddsim.log
+
+# ddsim exits 0 even when input parsing aborts the run; check explicitly.
+if grep -qE "Must Be Aborted|event parsing failed" ddsim.log; then
+  echo "ddsim run aborted" >&2; exit 1
+fi
+done=$(python3 -c "import ROOT; print(ROOT.TFile('sim.edm4hep.root').Get('events').GetEntries())")
+if [ "$done" != "$nev" ]; then
+  echo "simulated $done of $nev events" >&2; exit 1
+fi
 
 mkdir -p "$out"
 cp sim.edm4hep.root "$out/ttbar_pu${npu}_job$(printf %04d "$job").edm4hep.root"
